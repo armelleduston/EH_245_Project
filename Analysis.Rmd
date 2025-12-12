@@ -1,0 +1,49 @@
+---
+title: "EH245 Final Assignment"
+author: "Armelle Duston, Rebecca Hurwitz"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Load Data
+
+```{r}
+
+load("exposome.Rdata")
+
+```
+
+# Correlation Analysis
+Armelle
+```{r}
+
+```
+
+
+# Regression Analysis
+Becca
+```{r}
+
+```
+
+
+# WQS (or G-comp?)
+Armelle
+```{r}
+
+```
+
+
+# BKMR (or BMIM?)
+Becca
+```{r}
+
+```
+
+
+

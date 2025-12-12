@@ -4,8 +4,8 @@ Plan:
 
 1. Decide what data to use - Armelle figure out what's going on, make joint decision
 2. Evaluate and present the correlation structure of the exposure matrix. Do you see any clear pattern emerging? - Armelle
-4. Conduct a multiple regression analysis. Is there any evidence of multicollinearity?
-5. Evaluate the association between the mixture and the outcome using at least 2 of
+3. Conduct a multiple regression analysis. Is there any evidence of multicollinearity?
+4. Evaluate the association between the mixture and the outcome using at least 2 of
 the following 3 approaches: weighted quantile sum regression, Lasso/ridge/elastic net,
 Bayesian Kernel Machine Regression. For each method, report analysis description
 and results as you would do in a scientific paper. - Becca BMKR, Armelle something else
