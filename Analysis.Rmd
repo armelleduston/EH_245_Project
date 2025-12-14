@@ -28,7 +28,24 @@ Armelle
 # Regression Analysis
 Becca
 ```{r}
+# adding installation of the rexposome package they mentioned in class in case it is helpful for us
 
+if (!requireNamespace("BiocManager", quietly=TRUE))
+    install.packages("BiocManager")
+
+packages = c('Biobase', 'mice', 'MultiDataSet', 'lsr', 'FactoMineR',
+	'stringr', 'circlize', 'corrplot', 'ggplot2', 'reshape2', 'pryr',
+	'scales', 'imputeLCMD', 'scatterplot3d', 'glmnet', 'gridExtra',
+	'grid', 'Hmisc', 'gplots', 'gtools', 'S4Vectors'
+)
+for( pkg in packages ) {
+  if( !pkg %in% rownames( installed.packages() ) ) {
+    message( "Installing ", pkg )
+    BiocManager::install( pkg )
+  }
+}
+
+devtools::install_github("isglobal-brge/rexposome", ref="R-3.0")
 ```
 
 
