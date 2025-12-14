@@ -46,6 +46,7 @@ for( pkg in packages ) {
 }
 
 devtools::install_github("isglobal-brge/rexposome", ref="R-3.0")
+# requires special files but we have them!
 ```
 
 
