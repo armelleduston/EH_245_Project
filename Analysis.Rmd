@@ -7,6 +7,8 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
 ```
 
 
@@ -47,6 +49,16 @@ for( pkg in packages ) {
 
 devtools::install_github("isglobal-brge/rexposome", ref="R-3.0")
 # requires special files but we have them!
+
+library(rexposome)
+summary(exposome)
+glimpse(exposome)
+
+install.packages("visdat")
+library(visdat)
+
+read_exposome('/Users/rebeccahurwitz/Desktop/Harvard/Courses/Semester V Fall 2025 Courses/EH 245 - Statistical Methods for Environmental Mixtures/Project/EH_245_Project/exposome.RData')
+tableLOD
 ```
 
 
