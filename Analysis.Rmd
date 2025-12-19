@@ -7,25 +7,61 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(dplyr)
-library(ggplot2)
 ```
 
 
-# Load Data
+# Libraries and Load Data
 
 ```{r}
 
+library(dplyr)
+library(ggplot2)
+library(corrplot)
+library(gWQS)
+
 load("exposome.Rdata")
 
+```
+
+# Data processing
+
+```{r}
+
+metal_names_df <- codebook |>
+  filter(family == "Metals") |>
+  select(variable_name) |>
+  mutate(variable_name = as.character(variable_name))
+
+metal_names <- metal_names_df$variable_name
+
+
+# Exposure dataframe for metals only
+metals_df <- exposome[,c("ID", metal_names)] |>
+  mutate(hs_tl_cdich_None = ifelse(hs_tl_cdich_None == "Detected", 1, 0)) |>
+  mutate(hs_tl_mdich_None = ifelse(hs_tl_mdich_None == "Detected", 1, 0)) 
+
+colnames(metals_df) <- c("ID", paste0("x", as.character(1:20)))
+head(metals_df)
+
+# Full dataframe including covariates + outcomes
+full_data <- metals_df |>
+  left_join(covariates, by = "ID") |>
+  left_join(phenotype, by = "ID")
+  
+head(full_data)
+  
 ```
 
 # Correlation Analysis
 Armelle
 ```{r}
 
+corrplot(cor(metals_df[2:21]))
+
 ```
 
+Comments: 
+- Correlation between elements of our mixture seem quite low, I am not very concerned about multi-collinearity or other complexity due to correlated data
 
 # Regression Analysis
 Becca
@@ -62,9 +98,33 @@ tableLOD
 ```
 
 
-# WQS (or G-comp?)
+# WQS 
 Armelle
 ```{r}
+
+
+mix_name = paste0("x", as.character(1:20)) # x1, ..., x20
+
+# get covariate names
+cov_names_df <- codebook |>
+  filter(family == "Covariates") |>
+  select(variable_name) |>
+  mutate(variable_name = as.character(variable_name))
+cov_names <- cov_names_df$variable_name
+
+formula = as.formula(paste0(
+  "hs_zbmi_who ~ pwqs + nwqs + ",
+  paste(cov_names, collapse = " + ")
+))
+
+gwqs_res <- gwqs(formula,
+                 mix_name = mix_name, 
+                 data = full_data,
+                 q = 4, # quartiles
+                 validation = 0.6, 
+                 b = 500, 
+                 family = "gaussian", 
+                 seed = 245)
 
 ```
 
