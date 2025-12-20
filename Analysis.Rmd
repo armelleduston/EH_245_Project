@@ -1,0 +1,331 @@
+---
+title: "EH245 Final Assignment"
+author: "Armelle Duston, Rebecca Hurwitz"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Libraries and Load Data
+
+```{r}
+
+library(dplyr)
+library(ggplot2)
+library(corrplot)
+library(gWQS)
+library(bkmr)
+library(fields)
+library(dplyr)
+
+load("exposome.Rdata")
+
+```
+
+# Data processing
+
+```{r}
+
+metal_names_df <- codebook |>
+  filter(family == "Metals") |>
+  select(variable_name) |>
+  mutate(variable_name = as.character(variable_name))
+
+metal_names <- metal_names_df$variable_name
+
+
+# Exposure dataframe for metals only
+metals_df <- exposome[,c("ID", metal_names)] |>
+  mutate(hs_tl_cdich_None = ifelse(hs_tl_cdich_None == "Detected", 1, 0)) |>
+  mutate(hs_tl_mdich_None = ifelse(hs_tl_mdich_None == "Detected", 1, 0)) 
+
+colnames(metals_df) <- c("ID", paste0("x", as.character(1:20)))
+head(metals_df)
+
+# Full dataframe including covariates + outcomes
+full_data <- metals_df |>
+  left_join(covariates, by = "ID") |>
+  left_join(phenotype, by = "ID")
+  
+head(full_data)
+  
+head(exposome)
+```
+
+# Correlation Analysis
+Armelle
+```{r}
+
+corrplot(cor(metals_df[2:21]))
+
+```
+
+Comments: 
+- Correlation between elements of our mixture seem quite low, I am not very concerned about multi-collinearity or other complexity due to correlated data
+- Wow yeah super low!! Kinda surprising
+
+# Regression Analysis
+Becca
+```{r}
+# standardizing
+full_data[paste0("x", 1:20)] <- scale(full_data[paste0("x", 1:20)])
+
+# putting some of your code up here! 
+mix_name = paste0("x", as.character(1:20)) # x1, ..., x20
+
+# get covariate names
+cov_names_df <- codebook |>
+  filter(family == "Covariates") |>
+  select(variable_name) |>
+  mutate(variable_name = as.character(variable_name))
+cov_names <- cov_names_df$variable_name
+
+# From Brent's slides: Adjusted for covariates: Cohort, gestational age at birth, maternal BMI, maternal weight gain, maternal education, parity, native to country of birth
+cov_brent <- c(
+  "h_cohort",
+  "e3_gac_None",
+  "h_mbmi_None",
+  "hs_wgtgain_None",
+  "h_edumc_None",
+  "h_parity_None",
+  "h_native_None"
+)
+
+# linear regression
+lm_formula <- as.formula(
+  paste(
+    "hs_zbmi_who ~",
+    paste(c(mix_name, cov_brent), collapse = " + ")
+  )
+)
+lmall <- lm(lm_formula, data = full_data)
+summary(lmall)
+vif(lmall)
+
+```
+
+# WQS 
+Armelle
+```{r}
+
+
+mix_name = paste0("x", as.character(1:20)) # x1, ..., x20
+
+# get covariate names
+cov_names_df <- codebook |>
+  filter(family == "Covariates") |>
+  select(variable_name) |>
+  mutate(variable_name = as.character(variable_name))
+cov_names <- cov_names_df$variable_name
+
+formula = as.formula(paste0(
+  "hs_zbmi_who ~ pwqs + nwqs + ",
+  paste(cov_names, collapse = " + ")
+))
+
+gwqs_res <- gwqs(formula,
+                 mix_name = mix_name, 
+                 data = full_data,
+                 q = 4, # quartiles
+                 validation = 0.6, 
+                 b = 500, 
+                 family = "gaussian", 
+                 seed = 245)
+
+```
+
+
+# BKMR (or BMIM?)
+Becca
+```{r bkmr_fit, cache=FALSE, results='hide', message=FALSE, warning=FALSE, fig.keep='none'}
+
+# this is mainly pulled from Lab 4!
+set.seed(245)
+dat_bkmr <- full_data %>%
+  select(hs_zbmi_who, all_of(mix_name), all_of(cov_brent)) %>%
+  tidyr::drop_na()
+
+# renaming outcome
+y <- dat_bkmr$hs_zbmi_who
+
+# mixture matrix (already standardized)
+Z <- as.matrix(dat_bkmr[, mix_name])
+
+# confounders in X with dummy variables
+X <- model.matrix(
+  as.formula(paste("~", paste(cov_brent, collapse = " + "))),
+  data = dat_bkmr
+)
+
+# drop intercept column
+X <- X[, colnames(X) != "(Intercept)", drop = FALSE]
+
+# dim checks!
+dim(Z)
+dim(X)
+
+# knots
+knots50 <- fields::cover.design(Z, nd = 50)$design
+
+# fit BKMR 
+set.seed(245)
+fit <- kmbayes(y = y, Z = Z, X = X,
+               iter = 1000, verbose = TRUE,
+               varsel = TRUE, knots = knots50)
+
+# save
+dir.create("results", showWarnings = FALSE)
+dir.create("results/bkmr", showWarnings = FALSE)
+saveRDS(fit, "results/bkmr/bkmr_fit_1000.rds")
+
+# burn in
+sel_all  <- 1:1000
+sel_post <- 201:1000
+
+# PIPs
+pips_df <- ExtractPIPs(fit, sel = sel_post)
+pips_df <- pips_df[order(-pips_df$PIP), ]
+
+write.csv(
+  pips_df,
+  "results/bkmr/bkmr_pips_postburn.csv",
+  row.names = FALSE
+)
+
+# woolly worms!
+pdf("results/bkmr/bkmr_traceplots.pdf", width = 8, height = 6)
+
+TracePlot(fit = fit, par = "beta", sel = sel_all)
+TracePlot(fit = fit, par = "sigsq.eps", sel = sel_all)
+TracePlot(fit = fit, par = "lambda", sel = sel_all)
+
+TracePlot(fit = fit, par = "beta", sel = sel_post)
+TracePlot(fit = fit, par = "sigsq.eps", sel = sel_post)
+TracePlot(fit = fit, par = "lambda", sel = sel_post)
+
+dev.off()
+
+# risks overall
+risks_overall <- OverallRiskSummaries(
+  fit = fit,
+  qs = seq(0.25, 0.75, by = 0.05),
+  q.fixed = 0.5,
+  method = "approx",
+  sel = sel_post
+)
+
+p_overall <- ggplot(
+  risks_overall,
+  aes(quantile, est, ymin = est - 1.96 * sd, ymax = est + 1.96 * sd)
+) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray") +
+  geom_pointrange() +
+  labs(
+    x = "Joint mixture quantile",
+    y = "Change in BMI z-score",
+    title = "BKMR overall mixture effect"
+  )
+
+ggsave(
+  "results/bkmr/bkmr_overall_effect.png",
+  p_overall,
+  width = 7,
+  height = 5,
+  dpi = 300
+)
+
+pred.resp.univar <- PredictorResponseUnivar(
+  fit = fit,
+  sel = sel_post,
+  method = "approx"
+)
+
+risks.overall <- OverallRiskSummaries(
+  fit = fit,
+  qs = seq(0.25, 0.75, by = 0.05),
+  q.fixed = 0.5,
+  method = "approx",
+  sel = sel_post
+)
+
+p_univar <- ggplot(
+  pred.resp.univar,
+  aes(z, est, ymin = est - 1.96 * se, ymax = est + 1.96 * se)
+) +
+  geom_smooth(stat = "identity") +
+  facet_wrap(~ variable, scales = "free_x") +
+  ylab("h(z)") +
+  xlab("Standardized exposure") +
+  ggtitle("BKMR univariate exposure–response functions")
+
+ggsave(
+  "results/bkmr/bkmr_univariate_dose_response.png",
+  p_univar,
+  width = 10,
+  height = 8,
+  dpi = 300
+)
+
+pred.resp.bivar <- PredictorResponseBivar(
+  fit = fit, min.plot.dist = 1, sel = sel_post, method = "approx"
+)
+
+pred.resp.bivar.levels <- PredictorResponseBivarLevels(
+  pred.resp.df = pred.resp.bivar,
+  Z = Z,
+  both_pairs = TRUE,
+  qs = c(0.25, 0.5, 0.75)
+)
+
+ggplot(pred.resp.bivar.levels, aes(z1, est)) +
+  geom_smooth(aes(col = quantile), stat = "identity") +
+  facet_grid(variable2 ~ variable1) +
+  ggtitle("h(expos1 | quantiles of expos2)") +
+  xlab("expos1")
+
+# boston children's hospital plot lol
+ggsave("results/bkmr/bkmr_bivar_levels.png", width = 30, height = 30, dpi = 300)
+
+
+# outputs
+pips_df
+p_overall
+
+```
+
+# Stuff we probs won't use
+```{r}
+# adding installation of the rexposome package they mentioned in class in case it is helpful for us
+
+if (!requireNamespace("BiocManager", quietly=TRUE))
+    install.packages("BiocManager")
+
+packages = c('Biobase', 'mice', 'MultiDataSet', 'lsr', 'FactoMineR',
+	'stringr', 'circlize', 'corrplot', 'ggplot2', 'reshape2', 'pryr',
+	'scales', 'imputeLCMD', 'scatterplot3d', 'glmnet', 'gridExtra',
+	'grid', 'Hmisc', 'gplots', 'gtools', 'S4Vectors'
+)
+for( pkg in packages ) {
+  if( !pkg %in% rownames( installed.packages() ) ) {
+    message( "Installing ", pkg )
+    BiocManager::install( pkg )
+  }
+}
+
+devtools::install_github("isglobal-brge/rexposome", ref="R-3.0")
+# requires special files but we have them!
+
+library(rexposome)
+summary(exposome)
+glimpse(exposome)
+
+install.packages("visdat")
+library(visdat)
+
+tableLOD
+```
+
