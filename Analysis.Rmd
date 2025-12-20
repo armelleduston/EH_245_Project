@@ -287,6 +287,7 @@ ggplot(pred.resp.bivar.levels, aes(z1, est)) +
   ggtitle("h(expos1 | quantiles of expos2)") +
   xlab("expos1")
 
+# boston children's hospital plot lol
 ggsave("results/bkmr/bkmr_bivar_levels.png", width = 30, height = 30, dpi = 300)
 
 
