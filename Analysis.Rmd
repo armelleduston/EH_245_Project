@@ -50,6 +50,7 @@ full_data <- metals_df |>
   
 head(full_data)
   
+head(exposome)
 ```
 
 # Correlation Analysis
@@ -62,41 +63,47 @@ corrplot(cor(metals_df[2:21]))
 
 Comments: 
 - Correlation between elements of our mixture seem quite low, I am not very concerned about multi-collinearity or other complexity due to correlated data
+- Wow yeah super low!! Kinda surprising
 
 # Regression Analysis
 Becca
 ```{r}
-# adding installation of the rexposome package they mentioned in class in case it is helpful for us
+# standardizing
+full_data[paste0("x", 1:20)] <- scale(full_data[paste0("x", 1:20)])
 
-if (!requireNamespace("BiocManager", quietly=TRUE))
-    install.packages("BiocManager")
+# putting some of your code up here! 
+mix_name = paste0("x", as.character(1:20)) # x1, ..., x20
 
-packages = c('Biobase', 'mice', 'MultiDataSet', 'lsr', 'FactoMineR',
-	'stringr', 'circlize', 'corrplot', 'ggplot2', 'reshape2', 'pryr',
-	'scales', 'imputeLCMD', 'scatterplot3d', 'glmnet', 'gridExtra',
-	'grid', 'Hmisc', 'gplots', 'gtools', 'S4Vectors'
+# get covariate names
+cov_names_df <- codebook |>
+  filter(family == "Covariates") |>
+  select(variable_name) |>
+  mutate(variable_name = as.character(variable_name))
+cov_names <- cov_names_df$variable_name
+
+# From Brent's slides: Adjusted for covariates: Cohort, gestational age at birth, maternal BMI, maternal weight gain, maternal education, parity, native to country of birth
+cov_brent <- c(
+  "h_cohort",
+  "e3_gac_None",
+  "h_mbmi_None",
+  "hs_wgtgain_None",
+  "h_edumc_None",
+  "h_parity_None",
+  "h_native_None"
 )
-for( pkg in packages ) {
-  if( !pkg %in% rownames( installed.packages() ) ) {
-    message( "Installing ", pkg )
-    BiocManager::install( pkg )
-  }
-}
 
-devtools::install_github("isglobal-brge/rexposome", ref="R-3.0")
-# requires special files but we have them!
+# linear regression
+lm_formula <- as.formula(
+  paste(
+    "hs_zbmi_who ~",
+    paste(c(mix_name, cov_brent), collapse = " + ")
+  )
+)
+lmall <- lm(lm_formula, data = full_data)
+summary(lmall)
+vif(lmall)
 
-library(rexposome)
-summary(exposome)
-glimpse(exposome)
-
-install.packages("visdat")
-library(visdat)
-
-read_exposome('/Users/rebeccahurwitz/Desktop/Harvard/Courses/Semester V Fall 2025 Courses/EH 245 - Statistical Methods for Environmental Mixtures/Project/EH_245_Project/exposome.RData')
-tableLOD
 ```
-
 
 # WQS 
 Armelle
@@ -135,5 +142,35 @@ Becca
 
 ```
 
+# Stuff we probs won't use
+```{r}
+# adding installation of the rexposome package they mentioned in class in case it is helpful for us
 
+if (!requireNamespace("BiocManager", quietly=TRUE))
+    install.packages("BiocManager")
+
+packages = c('Biobase', 'mice', 'MultiDataSet', 'lsr', 'FactoMineR',
+	'stringr', 'circlize', 'corrplot', 'ggplot2', 'reshape2', 'pryr',
+	'scales', 'imputeLCMD', 'scatterplot3d', 'glmnet', 'gridExtra',
+	'grid', 'Hmisc', 'gplots', 'gtools', 'S4Vectors'
+)
+for( pkg in packages ) {
+  if( !pkg %in% rownames( installed.packages() ) ) {
+    message( "Installing ", pkg )
+    BiocManager::install( pkg )
+  }
+}
+
+devtools::install_github("isglobal-brge/rexposome", ref="R-3.0")
+# requires special files but we have them!
+
+library(rexposome)
+summary(exposome)
+glimpse(exposome)
+
+install.packages("visdat")
+library(visdat)
+
+tableLOD
+```
 
